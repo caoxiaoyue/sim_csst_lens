@@ -9,8 +9,8 @@ import numpy as np
 
 this_cosmos = CD.CosmosDist(Om0=0.3, Ode0=0.7, h=0.7)
 lens_pop = LensPopulation(
-    vdisp_floor=100, 
-    zl_max=2.0, 
+    vdisp_floor=50, 
+    zl_max=2.5, 
     cosmo_dist=this_cosmos,
     src_catalog_type='lsst',
     bands=['g', 'r', 'i', 'z'],

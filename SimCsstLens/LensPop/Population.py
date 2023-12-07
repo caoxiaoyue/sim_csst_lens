@@ -82,7 +82,7 @@ class LensPopulation(object):
         )
         tmp_arr = self.ideal_lens_bool_src.reshape(self.nsrcs_per_sample, -1).astype('int')
         tmp_arr = np.sum(tmp_arr, axis=0)
-        self.ideal_lens_bool_dfl = (tmp_arr > 0) #if tmp_arr > 1, multiple source lenses
+        self.ideal_lens_bool_dfl = (tmp_arr == self.nsrcs_per_sample) #if tmp_arr > 1, multiple source lenses
 
         #reshape the source info array, from [N_src_per_lens*n_lens,] to [N_src_per_lens, n_lens]
         self.thetaE_arr = self.thetaE_arr.reshape(self.nsrcs_per_sample,-1)

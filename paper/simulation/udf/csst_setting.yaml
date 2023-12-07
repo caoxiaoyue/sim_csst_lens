@@ -17,15 +17,15 @@ gains:
 - 1.0
 n_exp: 60
 psfs_fwhm:
-- null
-- null
-- null
-- null
+- 0.051
+- 0.064
+- 0.076
+- 0.089
 psfs_ree80:
-- 0.135
-- 0.135
-- 0.145
-- 0.165
+- null
+- null
+- null
+- null
 psfs_sigma:
 - null
 - null

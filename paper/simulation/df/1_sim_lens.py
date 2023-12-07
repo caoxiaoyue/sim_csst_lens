@@ -9,18 +9,18 @@ import numpy as np
 
 this_cosmos = CD.CosmosDist(Om0=0.3, Ode0=0.7, h=0.7)
 lens_pop = LensPopulation(
-    vdisp_floor=100, 
-    zl_max=2.0, 
+    vdisp_floor=50, 
+    zl_max=2.5, 
     cosmo_dist=this_cosmos,
     src_catalog_type='lsst',
     bands=['g', 'r', 'i', 'z'],
 )
 
-sky_frac = 400/41252.96
+sky_frac = 400.0/41252.96
 N_etgs = lens_pop.dfl_pop.number_of_etgs(sky_frac=sky_frac) #ideal lenses
 print(f'N ETGs in {sky_frac} fraction of sky area: {N_etgs:.2e}')
 
-Nsamples_per_draw = 20000
+Nsamples_per_draw = 10000
 Ndraw = math.ceil(N_etgs/Nsamples_per_draw)
 
 

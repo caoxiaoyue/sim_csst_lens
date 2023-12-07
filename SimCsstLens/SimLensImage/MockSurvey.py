@@ -35,7 +35,7 @@ class MockSurvey(object):
         self.exp_time = survey_info['exp_time']
         self.survey_area = survey_info['survey_area']
         self.readout = survey_info['readout']
-        self.dark_current = survey_info['dark_current'] #a float number
+        self.dark_current = survey_info['dark_current'] #a float number, in e-/s/pix
         self.rnd_obs = survey_info['rnd_obs']
         self.rnd_obs_info = survey_info['rnd_obs_info']
 
@@ -177,7 +177,7 @@ class MockSurvey(object):
                 sim_obj[ii][this_band].overlay_instrument_effect(
                     psf=self.psf_kernel_dict[this_band], #a 2d psf kernel image
                     skylevel=self.skyback_dict[this_band], #unit: counts/s/pix
-                    dark_current=self.dark_current, #unit: counts/s/pix
+                    dark_current=self.dark_current/self.gains[jj], #unit: adu counts/s/pix
                     readout_noise=self.readout, #unit: counts/pix
                     n_exposures=self.n_exp, 
                     exposure_time=eff_exp_time[jj], #effective expsoure time

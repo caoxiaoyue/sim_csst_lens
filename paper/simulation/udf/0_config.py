@@ -11,11 +11,11 @@ obs_info = {
     #you can set the width of psf, either via the ree80, sigma,
     #or fwhm of the gauss.
     #ree80: the 2d aperture radius which encloses 80% total energy of the gauss
-    'psfs_ree80': [0.135, 0.135, 0.145, 0.165],
+    'psfs_ree80': [None, None, None, None],
     #the sigma value of the 2d gaussian function 
     'psfs_sigma': [None, None, None, None],
     #the full-width-half-maximum of the gaussian function, it is defined in 1d
-    'psfs_fwhm': [None, None, None, None],
+    'psfs_fwhm': [0.051, 0.064, 0.076, 0.089],
     'n_exp': 60, #number of exposure for y-band (not simulated here), csst have 4 exposures
     'exp_time': [15000, 15000, 15000, 15000], #total expsoure time
     'survey_area': 9, #in deg^2 unit
