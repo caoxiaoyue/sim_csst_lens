@@ -39,6 +39,7 @@ class LensPopulation(object):
         nsamples=100,
         nsrcs_per_sample=1,
         src_over_density=1,
+        target_nsrc=1,
     ):
         self.nsamples = nsamples
         self.nsrcs_per_sample = nsrcs_per_sample
@@ -82,12 +83,12 @@ class LensPopulation(object):
         )
         tmp_arr = self.ideal_lens_bool_src.reshape(self.nsrcs_per_sample, -1).astype('int')
         tmp_arr = np.sum(tmp_arr, axis=0)
-        self.ideal_lens_bool_dfl = (tmp_arr == self.nsrcs_per_sample) #if tmp_arr > 1, multiple source lenses
+        self.ideal_lens_bool_dfl = (tmp_arr == target_nsrc) #if tmp_arr > 1, multiple source lenses; shape: [n_samples,]
 
-        #reshape the source info array, from [N_src_per_lens*n_lens,] to [N_src_per_lens, n_lens]
-        self.thetaE_arr = self.thetaE_arr.reshape(self.nsrcs_per_sample,-1)
+        #reshape the source info array, from [N_src_per_sample*n_lens,] to [N_src_per_sample, n_samples]
+        self.thetaE_arr = self.thetaE_arr.reshape(self.nsrcs_per_sample,-1) #shape: [N_src_per_sample, n_samples]
         self.einstein_mass_arr = self.einstein_mass_arr.reshape(self.nsrcs_per_sample,-1)
-        self.src_pop.zs_arr = self.src_pop.zs_arr.reshape(self.nsrcs_per_sample,-1)
+        self.src_pop.zs_arr = self.src_pop.zs_arr.reshape(self.nsrcs_per_sample,-1) #shape: [N_src_per_sample, n_samples]
         self.src_pop.xs_arr = self.src_pop.xs_arr.reshape(self.nsrcs_per_sample,-1)
         self.src_pop.ys_arr = self.src_pop.ys_arr.reshape(self.nsrcs_per_sample,-1)
         self.src_pop.pa_arr = self.src_pop.pa_arr.reshape(self.nsrcs_per_sample,-1)
@@ -95,9 +96,33 @@ class LensPopulation(object):
         self.src_pop.Re_arr = self.src_pop.Re_arr.reshape(self.nsrcs_per_sample,-1)
         for key in self.src_pop.app_mag_arr.keys():
             self.src_pop.app_mag_arr[key] = self.src_pop.app_mag_arr[key].reshape(self.nsrcs_per_sample,-1)
-        self.ideal_lens_bool_src = self.ideal_lens_bool_src.reshape(self.nsrcs_per_sample,-1)
+        self.ideal_lens_bool_src = self.ideal_lens_bool_src.reshape(self.nsrcs_per_sample,-1) #shape: [N_src_per_sample, n_samples]
 
+        #remove the source that is not lensed by any deflector
+        tmp_bool = self.ideal_lens_bool_src[:, self.ideal_lens_bool_dfl] #shape: [N_src_per_sample, n_lens]
+        self.thetaE_arr = self.thetaE_arr[:, self.ideal_lens_bool_dfl] #shape: [N_src_per_sample, n_lens]
+        self.thetaE_arr = self.thetaE_arr.T[tmp_bool.T].reshape(-1, target_nsrc).T #shape: [target_nsrc, n_lens]
+        self.einstein_mass_arr = self.einstein_mass_arr[:, self.ideal_lens_bool_dfl]
+        self.einstein_mass_arr = self.einstein_mass_arr.T[tmp_bool.T].reshape(-1, target_nsrc).T
+        self.src_pop.zs_arr = self.src_pop.zs_arr[:, self.ideal_lens_bool_dfl]
+        self.src_pop.zs_arr = self.src_pop.zs_arr.T[tmp_bool.T].reshape(-1, target_nsrc).T
+        self.src_pop.xs_arr = self.src_pop.xs_arr[:, self.ideal_lens_bool_dfl]
+        self.src_pop.xs_arr = self.src_pop.xs_arr.T[tmp_bool.T].reshape(-1, target_nsrc).T
+        self.src_pop.ys_arr = self.src_pop.ys_arr[:, self.ideal_lens_bool_dfl]
+        self.src_pop.ys_arr = self.src_pop.ys_arr.T[tmp_bool.T].reshape(-1, target_nsrc).T
+        self.src_pop.pa_arr = self.src_pop.pa_arr[:, self.ideal_lens_bool_dfl]
+        self.src_pop.pa_arr = self.src_pop.pa_arr.T[tmp_bool.T].reshape(-1, target_nsrc).T
+        self.src_pop.q_arr = self.src_pop.q_arr[:, self.ideal_lens_bool_dfl]
+        self.src_pop.q_arr = self.src_pop.q_arr.T[tmp_bool.T].reshape(-1, target_nsrc).T
+        self.src_pop.Re_arr = self.src_pop.Re_arr[:, self.ideal_lens_bool_dfl]
+        self.src_pop.Re_arr = self.src_pop.Re_arr.T[tmp_bool.T].reshape(-1, target_nsrc).T
+        for key in self.src_pop.app_mag_arr.keys():
+            self.src_pop.app_mag_arr[key] = self.src_pop.app_mag_arr[key][:, self.ideal_lens_bool_dfl]
+            self.src_pop.app_mag_arr[key] = self.src_pop.app_mag_arr[key].T[tmp_bool.T].reshape(-1, target_nsrc).T
+        self.ideal_lens_bool_src = self.ideal_lens_bool_src[:, self.ideal_lens_bool_dfl]
+        self.ideal_lens_bool_src = self.ideal_lens_bool_src.T[tmp_bool.T].reshape(-1, target_nsrc).T #shape: [target_nsrc, n_lens]
     
+
     def check_if_lensing(self, xs_arr, ys_arr, thetaE_arr):
         """
         Check if the lens candidate is real
@@ -132,101 +157,101 @@ class LensPopulation(object):
         SLU.save_hdf5_overwrite(
             fn,
             "deflector/z", 
-            data=self.dfl_pop.zl_arr[self.ideal_lens_bool_dfl],
+            data=self.dfl_pop.zl_arr[self.ideal_lens_bool_dfl], #shape: [n_lens, ]
         )
         SLU.save_hdf5_overwrite(
             fn,
             "deflector/q", 
-            data=self.dfl_pop.q_arr[self.ideal_lens_bool_dfl],
+            data=self.dfl_pop.q_arr[self.ideal_lens_bool_dfl], #shape: [n_lens, ]
         )
         SLU.save_hdf5_overwrite(
             fn,
             "deflector/vdisp", 
-            data=self.dfl_pop.vdisp_arr[self.ideal_lens_bool_dfl],
+            data=self.dfl_pop.vdisp_arr[self.ideal_lens_bool_dfl], #shape: [n_lens, ]
         )
         SLU.save_hdf5_overwrite(
             fn,
             "deflector/rband_abs_mag", 
-            data=self.dfl_pop.abs_mag_arr[self.ideal_lens_bool_dfl],
+            data=self.dfl_pop.abs_mag_arr[self.ideal_lens_bool_dfl], #shape: [n_lens, ]
         )          
         SLU.save_hdf5_overwrite(
             fn,
             "deflector/Re", 
-            data=self.dfl_pop.Re_arr[self.ideal_lens_bool_dfl],
+            data=self.dfl_pop.Re_arr[self.ideal_lens_bool_dfl], #shape: [n_lens, ]
         )
         for key in self.dfl_pop.app_mag_arr.keys():
             SLU.save_hdf5_overwrite(
                 fn,
                 f"deflector/app_mag_{key}", 
-                data=self.dfl_pop.app_mag_arr[key][self.ideal_lens_bool_dfl],
+                data=self.dfl_pop.app_mag_arr[key][self.ideal_lens_bool_dfl], #shape: [n_lens, ]
             )
-        SLU.save_hdf5_overwrite(
-            fn,
-            "deflector/bool_arr", 
-            data=self.ideal_lens_bool_dfl,
-        )      
+        # SLU.save_hdf5_overwrite(
+        #     fn,
+        #     "deflector/bool_arr", 
+        #     data=self.ideal_lens_bool_dfl, #shape: [n_src_per_sample, n_samples]
+        # )      
 
         #save infomation related to the source
         SLU.save_hdf5_overwrite(
             fn,
             "source/thetaE", 
-            data=self.thetaE_arr[:, self.ideal_lens_bool_dfl],
+            data=self.thetaE_arr, #shape: [target_nsrc, n_lens]
         )
 
         SLU.save_hdf5_overwrite(
             fn,
             "source/einstein_mass", 
-            data=self.einstein_mass_arr[:, self.ideal_lens_bool_dfl],
+            data=self.einstein_mass_arr, #shape: [target_nsrc, n_lens]
         )
 
         SLU.save_hdf5_overwrite(
             fn,
             "source/z", 
-            data=self.src_pop.zs_arr[:, self.ideal_lens_bool_dfl],
+            data=self.src_pop.zs_arr, #shape: [target_nsrc, n_lens]
         )
 
         SLU.save_hdf5_overwrite(
             fn,
             "source/xs", 
-            data=self.src_pop.xs_arr[:, self.ideal_lens_bool_dfl],
+            data=self.src_pop.xs_arr, #shape: [target_nsrc, n_lens]
         )
 
         SLU.save_hdf5_overwrite(
             fn,
             "source/ys", 
-            data=self.src_pop.ys_arr[:, self.ideal_lens_bool_dfl],
+            data=self.src_pop.ys_arr, #shape: [target_nsrc, n_lens]
         )
 
         SLU.save_hdf5_overwrite(
             fn,
             "source/pa", 
-            data=self.src_pop.pa_arr[:, self.ideal_lens_bool_dfl],
+            data=self.src_pop.pa_arr, #shape: [target_nsrc, n_lens]
         )
 
         SLU.save_hdf5_overwrite(
             fn,
             "source/q", 
-            data=self.src_pop.q_arr[:, self.ideal_lens_bool_dfl],
+            data=self.src_pop.q_arr, #shape: [target_nsrc, n_lens]
         )
 
         SLU.save_hdf5_overwrite(
             fn,
             "source/Re", 
-            data=self.src_pop.Re_arr[:, self.ideal_lens_bool_dfl],
+            data=self.src_pop.Re_arr, #shape: [target_nsrc, n_lens]
         )
 
         for key in self.src_pop.app_mag_arr.keys():
             SLU.save_hdf5_overwrite(
                 fn,
                 f"source/app_mag_{key}", 
-                data=self.src_pop.app_mag_arr[key][:, self.ideal_lens_bool_dfl],
+                data=self.src_pop.app_mag_arr[key], #shape: [target_nsrc, n_lens]
             )
      
-        SLU.save_hdf5_overwrite(
-            fn,
-            "source/bool_arr", 
-            data=self.ideal_lens_bool_src[:, self.ideal_lens_bool_dfl],
-        )
+        # SLU.save_hdf5_overwrite(
+        #     fn,
+        #     "source/bool_arr", 
+        #     data=self.ideal_lens_bool_src, #shape: [target_nsrc, n_lens]
+        # )
 
         fn.close()
 

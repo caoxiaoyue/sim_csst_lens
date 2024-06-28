@@ -78,20 +78,20 @@ class MockSurvey(object):
         dest_file = os.path.join(file_path, file_name)
         fn = h5py.File(dest_file, "r")
 
-        self.src_z = fn['source']['z'][()]
+        self.src_z = fn['source']['z'][()] #shape: [n_src_per_lens, n_ideal_lenses]
         self.src_xs = fn['source']['xs'][()]
         self.src_ys = fn['source']['ys'][()]
         self.src_Re = fn['source']['Re'][()]
         self.src_q = fn['source']['q'][()]
         self.src_pa = fn['source']['pa'][()]
         self.src_thetaE = fn['source']['thetaE'][()]
-        self.src_bool = fn['source']['bool_arr'][()]
+        self.src_bool = fn['source']['bool_arr'][()] #shape: [n_src_per_lens, n_ideal_lenses]
 
-        self.dfl_Re = fn['deflector']['Re'][()]
+        self.dfl_Re = fn['deflector']['Re'][()] #shape: [n_ideal_lenses]
         self.dfl_z = fn['deflector']['z'][()]
         self.dfl_q = fn['deflector']['q'][()]
         self.dfl_vdisp = fn['deflector']['vdisp'][()]
-        self.dfl_bool = fn['deflector']['bool_arr'][()]
+        # self.dfl_bool = fn['deflector']['bool_arr'][()]
 
         for band in self.bands[0:-1]:
             self.__dict__[f'src_app_mag_{band}'] = fn['source'][f'app_mag_{band}'][()]
