@@ -85,7 +85,7 @@ class MockSurvey(object):
         self.src_q = fn['source']['q'][()]
         self.src_pa = fn['source']['pa'][()]
         self.src_thetaE = fn['source']['thetaE'][()]
-        self.src_bool = fn['source']['bool_arr'][()] #shape: [n_src_per_lens, n_ideal_lenses]
+        # self.src_bool = fn['source']['bool_arr'][()] #shape: [n_src_per_lens, n_ideal_lenses]
 
         self.dfl_Re = fn['deflector']['Re'][()] #shape: [n_ideal_lenses]
         self.dfl_z = fn['deflector']['z'][()]
