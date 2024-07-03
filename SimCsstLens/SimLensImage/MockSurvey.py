@@ -22,6 +22,7 @@ class MockSurvey(object):
 
         self.dpix = survey_info['dpix']
         self.bands = survey_info['bands'] #['g', 'r', 'i', 'z']
+        self.n_native_bands = len(self.bands)
         self.bands.append('stack') 
         self.zero_mag = survey_info['zero_mag']
         self.zero_exp_time = survey_info['zero_exp_time']
@@ -38,6 +39,10 @@ class MockSurvey(object):
         self.dark_current = survey_info['dark_current'] #a float number, in e-/s/pix
         self.rnd_obs = survey_info['rnd_obs']
         self.rnd_obs_info = survey_info['rnd_obs_info']
+        try:
+            self.color_bands = survey_info['color_bands'] #such as['g', 'i']
+        except:
+            self.color_bands = None
 
         self.whole_sky_area = np.pi*4 * (180/np.pi)**2 #in deg^2 unit
         self.survey_sky_frac = self.survey_area / self.whole_sky_area
@@ -49,7 +54,7 @@ class MockSurvey(object):
         self.psf_kernel_dict = {}
         self.psf_fwhm_dict = {}
         self.skyback_dict = {}
-        for ii,band in enumerate(self.bands[0:-1]):
+        for ii, band in enumerate(self.bands[0:self.n_native_bands]):
             self.psf_kernel_dict[band] = SSU.gauss_psf(
                 npix=None, 
                 dpix=self.dpix, 
@@ -68,6 +73,17 @@ class MockSurvey(object):
                 self.psf_fwhm_dict[band] = self.psfs_fwhm[ii]
         # self.psf_fwhm_dict['stack'] = max([val for val in self.psf_fwhm_dict.values()])
         self.psf_fwhm_dict['stack'] = sum(self.psf_fwhm_dict.values()) / len(self.psf_fwhm_dict.values())
+        
+        if self.color_bands is not None:
+            self.bands.append('color') 
+            # self.colors_idx = [self.bands.index[item] for item in self.color_bands]
+            self.psf_fwhm_dict['color'] = np.sqrt(self.psf_fwhm_dict[self.color_bands[0]]**2 + self.psf_fwhm_dict[self.color_bands[1]]**2)
+            self.psf_kernel_dict['color'] = SSU.gauss_psf(
+                npix=None, 
+                dpix=self.dpix, 
+                fwhm=self.psf_fwhm_dict['color'], 
+                nsub=4
+            )
 
 
     def load_ideal_lens_samples(
@@ -85,15 +101,13 @@ class MockSurvey(object):
         self.src_q = fn['source']['q'][()]
         self.src_pa = fn['source']['pa'][()]
         self.src_thetaE = fn['source']['thetaE'][()]
-        # self.src_bool = fn['source']['bool_arr'][()] #shape: [n_src_per_lens, n_ideal_lenses]
 
         self.dfl_Re = fn['deflector']['Re'][()] #shape: [n_ideal_lenses]
         self.dfl_z = fn['deflector']['z'][()]
         self.dfl_q = fn['deflector']['q'][()]
         self.dfl_vdisp = fn['deflector']['vdisp'][()]
-        # self.dfl_bool = fn['deflector']['bool_arr'][()]
 
-        for band in self.bands[0:-1]:
+        for band in self.bands[0:self.n_native_bands]: #exclude 'stack' and 'color' bands
             self.__dict__[f'src_app_mag_{band}'] = fn['source'][f'app_mag_{band}'][()]
             self.__dict__[f'dfl_app_mag_{band}'] = fn['deflector'][f'app_mag_{band}'][()]
 
@@ -106,7 +120,7 @@ class MockSurvey(object):
         return the simulator of a lens.
         a lens typically includes multiple background sources, and multi-band observation
         """
-        sim_obj = {}
+        sim_obj = {} #['nsrc_per_lens', 'nbands']-like 'arrays', which saves the simulator object
         nsrc_per_lens = self.src_z.shape[0]
         for ii in range(nsrc_per_lens): #ii is the index of background sources 
             sim_obj[ii] = {}
@@ -120,7 +134,7 @@ class MockSurvey(object):
                 ),
             ]
 
-            for jj, band in enumerate(self.bands[0:-1]):
+            for jj, band in enumerate(self.bands[0:self.n_native_bands]): #exclude 'stack' and 'color' bands
                 this_lens_light = [
                     MLM.SersicLight(        
                         xc=0.0, 
@@ -164,15 +178,14 @@ class MockSurvey(object):
         lensing image are saved in the sim_obj internally
         """
         nsrc_per_lens = self.src_z.shape[0]
-        nband_no_stack = len(self.bands) - 1
-
-        eff_exp_time = np.zeros(nband_no_stack)
-        for jj in range(nband_no_stack):
+ 
+        eff_exp_time = np.zeros(self.n_native_bands)
+        for jj in range(self.n_native_bands):
             eff_exp_time[jj] = self.exp_time[jj]/self.zero_exp_time*self.gains[jj] #effective expsoure time
 
         #lensing image simulation of each band
         for ii in range(nsrc_per_lens):
-            for jj,this_band in enumerate(self.bands[0:-1]):
+            for jj, this_band in enumerate(self.bands[0:self.n_native_bands]):
                 sim_obj[ii][this_band].generate_ideal_image(npix=self.npix, dpix=self.dpix, nsub=2)
                 sim_obj[ii][this_band].overlay_instrument_effect(
                     psf=self.psf_kernel_dict[this_band], #a 2d psf kernel image
@@ -194,7 +207,7 @@ class MockSurvey(object):
             # sim_obj[ii]['stack']['image_map_cps'] = np.zeros((self.npix, self.npix))
             # sim_obj[ii]['stack']['noise_map_cps'] = np.zeros((self.npix, self.npix))
             variance_counts = np.zeros((self.npix, self.npix))
-            for jj,this_band in enumerate(self.bands[0:-1]):
+            for jj, this_band in enumerate(self.bands[0:self.n_native_bands]):
                 variance_counts += (sim_obj[ii][this_band].noise_map_cps * eff_exp_time[jj])**2
                 sim_obj[ii]['stack']['lens_image_cts'] += sim_obj[ii][this_band].blurred_lens_image_cps * eff_exp_time[jj]
                 sim_obj[ii]['stack']['image_cts'] += sim_obj[ii][this_band].blurred_image_cps * eff_exp_time[jj]
@@ -207,6 +220,33 @@ class MockSurvey(object):
             sim_obj[ii]['stack']['image_map_cps'] += np.random.normal(loc=0.0, scale=sim_obj[ii]['stack']['noise_map_cps'])
             sim_obj[ii]['stack']['extent'] = sim_obj[ii][this_band].extent
 
+        #add color band
+        if self.color_bands is not None:
+            for ii in range(nsrc_per_lens):
+                #'blue' band image
+                image_blue = sim_obj[ii][f'{self.color_bands[0]}'].image_map_cps
+                noise_blue = sim_obj[ii][f'{self.color_bands[0]}'].noise_map_cps
+                lensed_arc_blue = sim_obj[ii][f'{self.color_bands[0]}'].blurred_image_cps - sim_obj[ii][f'{self.color_bands[0]}'].blurred_lens_image_cps
+                # 'red' band image
+                image_red = sim_obj[ii][f'{self.color_bands[1]}'].image_map_cps
+                noise_red = sim_obj[ii][f'{self.color_bands[1]}'].noise_map_cps
+                lensed_arc_red = sim_obj[ii][f'{self.color_bands[1]}'].blurred_image_cps - sim_obj[ii][f'{self.color_bands[1]}'].blurred_lens_image_cps
+                # find alpha, generally <1.0
+                alpha = sim_obj[ii][f'{self.color_bands[0]}'].lens_light_models[0].Ie / \
+                    sim_obj[ii][f'{self.color_bands[1]}'].lens_light_models[0].Ie
+                # color image
+                image_color = image_blue - alpha * image_red
+                noise_color = np.sqrt(noise_blue**2 + alpha**2 * noise_red**2)
+                lensed_arc_color = lensed_arc_blue - alpha * lensed_arc_red
+                sim_obj[ii]['color'] = {}
+                sim_obj[ii]['color']['alpha'] = alpha
+                sim_obj[ii]['color']['lensed_arc_cps'] = lensed_arc_color #for arc SNR calculation
+                sim_obj[ii]['color']['image_map_cps'] = image_color 
+                sim_obj[ii]['color']['lens_image_cps'] = np.zeros_like(image_color) #for consistent api with other bands
+                sim_obj[ii]['color']['noise_map_cps'] = noise_color
+                sim_obj[ii]['color']['extent'] = sim_obj[ii]['stack']['extent'] #for consistent api with other bands
+                sim_obj[ii]['color']['magnification'] = sim_obj[ii]['stack']['magnification'] #for consistent api with other bands
+
 
     def sn_and_mu_from(self, sim_obj):
         nsrc_per_lens = self.src_z.shape[0]
@@ -215,7 +255,7 @@ class MockSurvey(object):
         mu = np.zeros((nsrc_per_lens, nband))
 
         for ii in range(nsrc_per_lens):
-            for jj,band in enumerate(self.bands[0:-1]):
+            for jj,band in enumerate(self.bands[0:self.n_native_bands]):
                 lensed_arc_cps = sim_obj[ii][band].blurred_image_cps - sim_obj[ii][band].blurred_lens_image_cps
                 sn[ii, jj] = SSU.SN_from_lensed_image(
                     lensed_arc_cps, 
@@ -224,11 +264,19 @@ class MockSurvey(object):
                 mu[ii, jj] = sim_obj[ii][band].magnification
 
             # save the “stacked" band info 
-            sn[ii, -1] = SSU.SN_from_lensed_image(
+            sn[ii, self.n_native_bands] = SSU.SN_from_lensed_image(
                     sim_obj[ii]['stack']['lensed_arc_cps'], 
                     sim_obj[ii]['stack']['noise_map_cps'],
             )
-            mu[ii, -1] = sim_obj[ii]['stack']['magnification']
+            mu[ii, self.n_native_bands] = sim_obj[ii]['stack']['magnification']
+
+            #save the "color" band info
+            if self.color_bands is not None:
+                sn[ii, self.n_native_bands+1] = SSU.SN_from_lensed_image(
+                        sim_obj[ii]['color']['lensed_arc_cps'], 
+                        sim_obj[ii]['color']['noise_map_cps'],
+                )
+                mu[ii, self.n_native_bands+1] = sim_obj[ii]['color']['magnification']
         
         return sn, mu
 
@@ -251,7 +299,7 @@ class MockSurvey(object):
             except IOError:
                 pass
 
-        self.sn_arr = np.zeros((self.src_z.shape[0], len(self.bands), self.n_ideal_lenses))
+        self.sn_arr = np.zeros((self.src_z.shape[0], len(self.bands), self.n_ideal_lenses)) #shape: [n_src, n_band, n_ideal_lenses]
         self.mu_arr = np.zeros((self.src_z.shape[0], len(self.bands), self.n_ideal_lenses))
         self.obs_cond = np.zeros((self.src_z.shape[0], len(self.bands), self.n_ideal_lenses, 3), dtype='bool')
         self.ring_cond = np.zeros((self.src_z.shape[0], len(self.bands), self.n_ideal_lenses), dtype='bool') #NOte only works for SIE now
@@ -280,7 +328,7 @@ class MockSurvey(object):
 
                     self.obs_cond[jj, kk, ii, 2] = SSU.condition_images_sn(sn[jj, kk])
 
-                    if band != 'stack':
+                    if (band != 'stack') and (band != 'color'):
                         self.ring_cond[jj, kk, ii] = SSU.check_ring(
                             sim_obj[jj][band].lens_mass_models[0],
                             self.src_xs[jj, ii],
@@ -290,7 +338,9 @@ class MockSurvey(object):
                             self.src_pa[jj, ii],
                         ) #Note, only works for a single SIE lens
                     else:
-                        self.ring_cond[jj, -1, ii] = np.sum((self.ring_cond[jj, 0:-1, ii]).astype('int'))>0
+                        self.ring_cond[jj, self.n_native_bands, ii] = np.sum((self.ring_cond[jj, 0:self.n_native_bands, ii]).astype('int'))>0
+                    if self.color_bands is not None:
+                        self.ring_cond[jj, self.n_native_bands+1, ii] = self.ring_cond[jj, self.n_native_bands, ii]
 
                     if output_image is True:
                         self.output_lens_image(sim_obj, ii, jj, kk, band, output_path=output_path)
