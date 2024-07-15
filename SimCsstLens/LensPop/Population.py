@@ -13,12 +13,15 @@ class LensPopulation(object):
         cosmo_dist=None,
         src_catalog_type='lsst',
         bands=['g', 'r', 'i', 'z'],
+        n_vdisp_bins=20,
     ) -> None:
         self.vdisp_floor = vdisp_floor
         self.zl_max = zl_max
         self.cosmo_dist = cosmo_dist
         self.src_catalog_type = src_catalog_type
         self.bands = bands
+        self.n_vdisp_bins = n_vdisp_bins
+        self.vdisp_bin_edges = np.linspace(vdisp_floor, 400.0, n_vdisp_bins+1)
 
         self.dfl_pop = DeflectorPopulation(
             vdisp_floor=self.vdisp_floor,
@@ -51,6 +54,9 @@ class LensPopulation(object):
             nsrcs_per_sample=self.nsrcs_per_sample,
             over_density=self.src_over_density,
         )
+
+        #count the number of ETGs in each vdisp bins
+        self.n_etg_arr = np.histogram(self.dfl_pop.vdisp_arr, bins=self.vdisp_bin_edges)[0] #shape: (n_vdisp_bins,)
 
         #calculate the einstein radius (in arcsec) of each source
         zl_tmp_arr = np.zeros_like(self.src_pop.zs_arr)
@@ -121,6 +127,10 @@ class LensPopulation(object):
             self.src_pop.app_mag_arr[key] = self.src_pop.app_mag_arr[key].T[tmp_bool.T].reshape(-1, target_nsrc).T
         self.ideal_lens_bool_src = self.ideal_lens_bool_src[:, self.ideal_lens_bool_dfl]
         self.ideal_lens_bool_src = self.ideal_lens_bool_src.T[tmp_bool.T].reshape(-1, target_nsrc).T #shape: [target_nsrc, n_lens]
+
+        # count the number of ideal lens in each vdisp bins
+        ideal_lens_vdisp_arr = self.dfl_pop.vdisp_arr[self.ideal_lens_bool_dfl] #shape: [n_lens,]
+        self.n_ideal_lens_arr = np.histogram(ideal_lens_vdisp_arr, bins=self.vdisp_bin_edges)[0] #shape: (n_vdisp_bins,)
     
 
     def check_if_lensing(self, xs_arr, ys_arr, thetaE_arr):
@@ -185,11 +195,6 @@ class LensPopulation(object):
                 f"deflector/app_mag_{key}", 
                 data=self.dfl_pop.app_mag_arr[key][self.ideal_lens_bool_dfl], #shape: [n_lens, ]
             )
-        # SLU.save_hdf5_overwrite(
-        #     fn,
-        #     "deflector/bool_arr", 
-        #     data=self.ideal_lens_bool_dfl, #shape: [n_src_per_sample, n_samples]
-        # )      
 
         #save infomation related to the source
         SLU.save_hdf5_overwrite(
@@ -246,12 +251,24 @@ class LensPopulation(object):
                 f"source/app_mag_{key}", 
                 data=self.src_pop.app_mag_arr[key], #shape: [target_nsrc, n_lens]
             )
-     
-        # SLU.save_hdf5_overwrite(
-        #     fn,
-        #     "source/bool_arr", 
-        #     data=self.ideal_lens_bool_src, #shape: [target_nsrc, n_lens]
-        # )
+
+        SLU.save_hdf5_overwrite(
+            fn,
+            "n_etg_arr", 
+            data=self.n_etg_arr, #shape: [n_vdisp_bins, ]
+        )
+
+        SLU.save_hdf5_overwrite(
+            fn,
+            "n_ideal_lens_arr", 
+            data=self.n_ideal_lens_arr, #shape: [n_vdisp_bins, ]
+        )
+
+        SLU.save_hdf5_overwrite(
+            fn,
+            "vdisp_bin_edges", 
+            data=self.vdisp_bin_edges, #shape: [n_vdisp_bins, ]
+        )
 
         fn.close()
 
